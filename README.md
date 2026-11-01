@@ -119,6 +119,34 @@ opensky-medallion/
 
 ---
 
+### What I learned in Week 1
+
+1. **Project setup:** created the GitHub repo and a Python virtual environment, and ran
+   the test suite with `pytest`. The tests use mocked API responses, so they pass without
+   network access.
+2. **OAuth2 client credentials:** created an API client in my OpenSky account and swapped
+   its client ID and secret for a short-lived access token. `auth.py` caches the token
+   and refreshes it 60 seconds before it expires, so no request is sent with an expired token.
+3. **First live API call:** ran the ingestion job against `/states/all` with the India
+   bounding box and checked that the raw JSON landed in the Bronze folder.
+4. **Bronze layer design:**
+   - The API response is stored untouched, so it can be replayed and audited.
+   - Files are partitioned by `date=/hour=`, so later jobs read only the folders they need.
+   - Each file is written to a `.tmp` name and then renamed, so no reader sees a half-written file.
+   - A metadata envelope records `run_id`, record count and credits left, for lineage.
+5. **Failure handling and tests:** went through how the client handles each response type:
+   - 5xx: retry with exponential backoff
+   - 429: wait for the `Retry-After` time
+   - 401: get a new token and retry
+   - Other 4xx: fail without retrying
+
+   Each case has a matching unit test.
+6. **Scheduled collection:** ran the job in `--loop` mode every 5 minutes and collected
+   28 Bronze files, saved in date/hour partitions.
+
+![Ingestion loop logs, one run every 5 minutes](image.png)
+![Bronze files stored in date/hour partition folders](image-1.png)
+
 ## Interview talking points from Week 1
 - OAuth2 client-credentials flow with proactive token refresh
 - Rate-limit handling (credit budget, `429` + `Retry-After`)
